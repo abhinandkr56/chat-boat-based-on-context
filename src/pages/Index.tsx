@@ -1,7 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,17 +90,34 @@ export default function Index() {
     setIsLoading(true);
 
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
       const context = contexts.find((ctx) => ctx.id === selectedContext);
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      
       const prompt = context 
         ? `Context: ${context.content}\n\nUser Question: ${input}`
         : input;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }]
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const text = data.candidates[0].content.parts[0].text;
 
       const assistantMessage: Message = {
         role: "assistant",
