@@ -49,6 +49,7 @@ export default function Index() {
             content: text,
           };
           setContexts((prev) => [...prev, newContext]);
+          console.log("Added context:", newContext);
         }
         toast({
           title: "Success",
@@ -91,16 +92,24 @@ export default function Index() {
 
     try {
       const context = contexts.find((ctx) => ctx.id === selectedContext);
-      const prompt = context 
-        ? `You are a helpful assistant. Use ONLY the following context to answer the question. If the question cannot be answered using the context, say "I cannot answer this question based on the provided context."
+      console.log("Selected context:", context);
+      console.log("Selected context ID:", selectedContext);
+
+      let prompt = input;
+      
+      if (context && selectedContext !== "no-context") {
+        prompt = `You are a helpful assistant. Use ONLY the following context to answer the question. If the question cannot be answered using the context, say "I cannot answer this question based on the provided context."
 
 Context:
 ${context.content}
 
 Question: ${input}
 
-Answer:`
-        : input;
+Answer:`;
+        console.log("Using context. Final prompt:", prompt);
+      } else {
+        console.log("No context selected, using direct input as prompt");
+      }
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
@@ -120,10 +129,13 @@ Answer:`
       );
 
       if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
+        const errorData = await response.json();
+        console.error("API Error response:", errorData);
+        throw new Error(`API request failed: ${errorData.error?.message || response.statusText}`);
       }
 
       const data = await response.json();
+      console.log("API Response:", data);
       const text = data.candidates[0].content.parts[0].text;
 
       const assistantMessage: Message = {
