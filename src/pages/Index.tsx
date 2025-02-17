@@ -24,6 +24,8 @@ interface Context {
   content: string;
 }
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export default function Index() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [contexts, setContexts] = useState<Context[]>([]);
@@ -90,11 +92,11 @@ export default function Index() {
     setInput("");
     setIsLoading(true);
 
-    try {
-      const context = contexts.find((ctx) => ctx.id === selectedContext);
-      console.log("Selected context:", context);
-      console.log("Selected context ID:", selectedContext);
+    const maxRetries = 3;
+    let retryCount = 0;
 
+    const makeRequest = async () => {
+      const context = contexts.find((ctx) => ctx.id === selectedContext);
       let prompt = input;
       
       if (context && selectedContext !== "no-context") {
@@ -106,9 +108,6 @@ ${context.content}
 Question: ${input}
 
 Answer:`;
-        console.log("Using context. Final prompt:", prompt);
-      } else {
-        console.log("No context selected, using direct input as prompt");
       }
 
       const response = await fetch(
@@ -130,14 +129,43 @@ Answer:`;
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("API Error response:", errorData);
-        throw new Error(`API request failed: ${errorData.error?.message || response.statusText}`);
+        if (response.status === 429) {
+          throw new Error("RATE_LIMIT");
+        }
+        throw new Error(errorData.error?.message || response.statusText);
       }
 
-      const data = await response.json();
-      console.log("API Response:", data);
-      const text = data.candidates[0].content.parts[0].text;
+      return response.json();
+    };
 
+    try {
+      let data;
+      while (retryCount < maxRetries) {
+        try {
+          data = await makeRequest();
+          break;
+        } catch (error) {
+          if (error instanceof Error && error.message === "RATE_LIMIT") {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              const waitTime = Math.pow(2, retryCount) * 1000; // Exponential backoff
+              toast({
+                title: "Rate limit reached",
+                description: `Retrying in ${waitTime/1000} seconds... (Attempt ${retryCount}/${maxRetries})`,
+              });
+              await delay(waitTime);
+              continue;
+            }
+          }
+          throw error;
+        }
+      }
+
+      if (!data) {
+        throw new Error("Failed to get response after retries");
+      }
+
+      const text = data.candidates[0].content.parts[0].text;
       const assistantMessage: Message = {
         role: "assistant",
         content: text,
@@ -147,7 +175,9 @@ Answer:`;
       const errorMessage = error instanceof Error ? error.message : "Failed to get response";
       toast({
         title: "Error",
-        description: errorMessage,
+        description: errorMessage === "RATE_LIMIT" 
+          ? "Rate limit exceeded. Please try again later." 
+          : errorMessage,
         variant: "destructive",
       });
       console.error("API Error:", error);
