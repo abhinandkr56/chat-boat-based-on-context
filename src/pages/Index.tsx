@@ -30,7 +30,7 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 export default function Index() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [contexts, setContexts] = useState<Context[]>([]);
-  const [selectedContext, setSelectedContext] = useState<string>("");
+  const [selectedContext, setSelectedContext] = useState<string>("no-context");
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -134,7 +134,7 @@ export default function Index() {
                 <SelectValue placeholder="Select context" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No context</SelectItem>
+                <SelectItem value="no-context">No context</SelectItem>
                 {contexts.map((context) => (
                   <SelectItem key={context.id} value={context.id}>
                     {context.name}
