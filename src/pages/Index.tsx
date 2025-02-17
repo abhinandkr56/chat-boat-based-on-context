@@ -92,7 +92,14 @@ export default function Index() {
     try {
       const context = contexts.find((ctx) => ctx.id === selectedContext);
       const prompt = context 
-        ? `Context: ${context.content}\n\nUser Question: ${input}`
+        ? `You are a helpful assistant. Use ONLY the following context to answer the question. If the question cannot be answered using the context, say "I cannot answer this question based on the provided context."
+
+Context:
+${context.content}
+
+Question: ${input}
+
+Answer:`
         : input;
 
       const response = await fetch(
