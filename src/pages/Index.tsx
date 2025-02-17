@@ -25,14 +25,13 @@ interface Context {
   content: string;
 }
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
-
 export default function Index() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [contexts, setContexts] = useState<Context[]>([]);
   const [selectedContext, setSelectedContext] = useState<string>("no-context");
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [apiKey, setApiKey] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -76,6 +75,15 @@ export default function Index() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
+    
+    if (!apiKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter your Google AI API key to continue",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const userMessage: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -83,6 +91,7 @@ export default function Index() {
     setIsLoading(true);
 
     try {
+      const genAI = new GoogleGenerativeAI(apiKey);
       const context = contexts.find((ctx) => ctx.id === selectedContext);
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
       
@@ -100,11 +109,13 @@ export default function Index() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to get response";
       toast({
         title: "Error",
-        description: "Failed to get response",
+        description: errorMessage,
         variant: "destructive",
       });
+      console.error("API Error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -115,6 +126,20 @@ export default function Index() {
       <div className="max-w-6xl mx-auto grid gap-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="p-6 col-span-1 backdrop-blur-lg bg-white/80 border border-gray-200">
+            <h2 className="text-lg font-semibold mb-4">Settings</h2>
+            <div className="mb-4">
+              <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 mb-1">
+                Google AI API Key
+              </label>
+              <input
+                type="password"
+                id="apiKey"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your API key"
+                className="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
             <h2 className="text-lg font-semibold mb-4">Document Context</h2>
             <div
               {...getRootProps()}
